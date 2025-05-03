@@ -8,23 +8,34 @@ SCHEME_CSV_URL = "https://portal.amfiindia.com/DownloadSchemeData_Po.aspx?mf=0"
 DAILY_NAV_URL   = "https://www.amfiindia.com/spages/NAVAll.txt"
 HIST_NAV_URL    = "http://portal.amfiindia.com/DownloadNAVHistoryReport_Po.aspx"
 
+
+# app/nav_fetcher.py
+
 def fetch_and_store_schemes():
     r = requests.get(SCHEME_CSV_URL)
     r.raise_for_status()
-    reader = csv.DictReader(r.text.splitlines())
+    lines = r.text.splitlines()
+    reader = csv.DictReader(lines)
+
+    # Normalize fieldnames by stripping spaces
+    reader.fieldnames = [h.strip() for h in reader.fieldnames]
+
     conn = get_conn()
-    cur  = conn.cursor()
+    cur = conn.cursor()
     for row in reader:
-        code   = row["Scheme Code"]
-        name   = row["Scheme Name"]
-        launch = datetime.strptime(row["Launch Date"], "%d-%b-%Y").date().isoformat()
-        cur.execute("""
-          INSERT OR IGNORE INTO schemes 
-            (scheme_code, scheme_name, launch_date)
-          VALUES (?, ?, ?)
-        """, (code, name, launch))
+        # Also strip each key in the row
+        row = {k.strip(): v for k, v in row.items()}
+        code = row["Scheme Code"]
+        name = row["Scheme Name"]
+        launch = datetime.strptime(row["Launch Date"], "%d-%b-%Y") \
+            .date().isoformat()
+        cur.execute(
+            "INSERT OR IGNORE INTO schemes (scheme_code, scheme_name, launch_date) VALUES (?, ?, ?)",
+            (code, name, launch)
+        )
     conn.commit()
     conn.close()
+
 
 def fetch_daily_nav():
     r = requests.get(DAILY_NAV_URL)

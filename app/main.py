@@ -1,8 +1,7 @@
-# main.py
+# app/main.py
 from fastapi import FastAPI
-from pydantic import BaseModel
-from storage import init_db, get_conn
-from nav_fetcher import (
+from app.storage import init_db, get_conn
+from app.nav_fetcher import (
     fetch_and_store_schemes,
     fetch_daily_nav,
     fetch_all_historical,
@@ -16,10 +15,6 @@ def startup_tasks():
     fetch_and_store_schemes()
     fetch_all_historical()
 
-class NAVQuery(BaseModel):
-    scheme_code: str = None
-    date: str = None
-
 @app.get("/schemes")
 def list_schemes():
     conn = get_conn()
@@ -31,22 +26,23 @@ def list_schemes():
     ]
 
 @app.get("/nav")
-def get_nav(q: NAVQuery):
+def get_nav(scheme_code: str = None, date: str = None):
     conn = get_conn()
     sql = "SELECT date, nav FROM navs WHERE 1=1"
     params = []
-    if q.scheme_code:
+    if scheme_code:
         sql += " AND scheme_code=?"
-        params.append(q.scheme_code)
-    if q.date:
+        params.append(scheme_code)
+    if date:
         sql += " AND date=?"
-        params.append(q.date)
+        params.append(date)
     rows = conn.execute(sql, params).fetchall()
     conn.close()
     return [{"date": r[0], "nav": r[1]} for r in rows]
 
 @app.get("/update")
 def update_data():
+    init_db()
     fetch_and_store_schemes()
     fetch_daily_nav()
     return {"status": "updated"}
