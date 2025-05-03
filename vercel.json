@@ -1,8 +1,7 @@
-// vercel.json
 {
   "functions": {
     "api/update.py": {
-      "schedule": "30 20 * * *"  // runs at 20:30 UTC daily (02:00 IST)
+      "schedule": "30 20 * * *"
     }
   }
 }
