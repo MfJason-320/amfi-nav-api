@@ -8,28 +8,40 @@ SCHEME_CSV_URL = "https://portal.amfiindia.com/DownloadSchemeData_Po.aspx?mf=0"
 DAILY_NAV_URL  = "https://www.amfiindia.com/spages/NAVAll.txt"
 HIST_NAV_URL   = "http://portal.amfiindia.com/DownloadNAVHistoryReport_Po.aspx"
 
+def sniff_delimiter(header_line: str) -> str:
+    """Return ';' if the header line contains semicolons, else ','."""
+    return ';' if ';' in header_line else ','
+
 def fetch_and_store_schemes():
     """
-    Download the raw CSV, split by lines, then by commas.
-    Use fixed column positions to avoid header mismatches:
-      0: Scheme Code, 1: Scheme Name, 2: Launch Date
+    Download the AMFI schemes file, detect its delimiter,
+    and parse only the first three columns (code, name, launch date).
     """
     r = requests.get(SCHEME_CSV_URL)
     r.raise_for_status()
-    lines = r.text.splitlines()
+    lines = [line for line in r.text.splitlines() if line.strip()]
+    if not lines:
+        return
 
+    delimiter = sniff_delimiter(lines[0])
     conn = get_conn()
     cur  = conn.cursor()
 
-    # Skip the first line (header) and split each row by comma
-    for line in lines[1:]:
-        parts = [p.strip() for p in line.split(",")]
+    # Skip header, parse rows
+    for row in lines[1:]:
+        parts = row.split(delimiter)
         if len(parts) < 3:
-            continue  # malformed row—skip
+            continue  # malformed row
 
-        code        = parts[0]
-        name        = parts[1]
-        launch_date = datetime.strptime(parts[2], "%d-%b-%Y").date().isoformat()
+        code        = parts[0].strip()
+        name        = parts[1].strip()
+        # Some CSVs put date in third field; others may have extra fields
+        raw_date    = parts[2].strip()
+        try:
+            launch_date = datetime.strptime(raw_date, "%d-%b-%Y").date().isoformat()
+        except ValueError:
+            # If parsing fails, skip this row
+            continue
 
         cur.execute(
             "INSERT OR IGNORE INTO schemes (scheme_code, scheme_name, launch_date) VALUES (?, ?, ?)",
@@ -39,14 +51,15 @@ def fetch_and_store_schemes():
     conn.commit()
     conn.close()
 
+
 def fetch_daily_nav():
     r = requests.get(DAILY_NAV_URL)
     r.raise_for_status()
-    lines = r.text.splitlines()
-
+    lines = [line for line in r.text.splitlines() if line.strip()]
     conn = get_conn()
     cur  = conn.cursor()
 
+    # Semicolon‑delimited: code;name;...;nav;...;date;...
     for line in lines[1:]:
         parts = [p.strip() for p in line.split(";")]
         if len(parts) < 8:
@@ -55,9 +68,11 @@ def fetch_daily_nav():
         code     = parts[0]
         nav_str  = parts[3]
         date_str = parts[7]
-
-        date = datetime.strptime(date_str, "%d-%b-%Y").date().isoformat()
-        nav  = float(nav_str)
+        try:
+            date = datetime.strptime(date_str, "%d-%b-%Y").date().isoformat()
+            nav  = float(nav_str)
+        except ValueError:
+            continue
 
         cur.execute(
             "INSERT OR REPLACE INTO navs (scheme_code, date, nav) VALUES (?, ?, ?)",
@@ -67,12 +82,12 @@ def fetch_daily_nav():
     conn.commit()
     conn.close()
 
+
 def fetch_historical_nav_for_scheme(code, launch_date):
     from_date = datetime.fromisoformat(launch_date)
     today     = datetime.today()
-
-    conn = get_conn()
-    cur  = conn.cursor()
+    conn      = get_conn()
+    cur       = conn.cursor()
 
     while from_date < today:
         to_date = min(from_date + timedelta(days=5*365), today)
@@ -84,15 +99,17 @@ def fetch_historical_nav_for_scheme(code, launch_date):
         }
         r = requests.get(HIST_NAV_URL, params=params)
         r.raise_for_status()
-        rows = r.text.splitlines()[1:]  # skip header
 
+        rows = [ln for ln in r.text.splitlines() if ln.strip()][1:]
         for row in rows:
             cols = [c.strip() for c in row.split(",")]
             if len(cols) < 2:
                 continue
-
-            date = datetime.strptime(cols[0], "%d-%b-%Y").date().isoformat()
-            nav  = float(cols[1])
+            try:
+                date = datetime.strptime(cols[0], "%d-%b-%Y").date().isoformat()
+                nav  = float(cols[1])
+            except ValueError:
+                continue
 
             cur.execute(
                 "INSERT OR REPLACE INTO navs (scheme_code, date, nav) VALUES (?, ?, ?)",
@@ -103,6 +120,7 @@ def fetch_historical_nav_for_scheme(code, launch_date):
         from_date = to_date
 
     conn.close()
+
 
 def fetch_all_historical():
     conn = get_conn()
