@@ -1,4 +1,5 @@
-# storage.py
+# app/storage.py
+
 import sqlite3
 
 DB_PATH = "amfi.db"
@@ -8,8 +9,7 @@ def get_conn():
 
 def init_db():
     conn = get_conn()
-    cur = conn.cursor()
-    # Create schemes table
+    cur  = conn.cursor()
     cur.execute("""
       CREATE TABLE IF NOT EXISTS schemes (
         scheme_code TEXT PRIMARY KEY,
@@ -17,7 +17,6 @@ def init_db():
         launch_date TEXT
       )
     """)
-    # Create navs table
     cur.execute("""
       CREATE TABLE IF NOT EXISTS navs (
         scheme_code TEXT,
@@ -29,6 +28,3 @@ def init_db():
     """)
     conn.commit()
     conn.close()
-
-if __name__ == "__main__":
-    init_db()
