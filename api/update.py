@@ -1,14 +1,8 @@
 # api/update.py
-import os
-import sys
-from storage import init_db
-from nav_fetcher import fetch_and_store_schemes, fetch_daily_nav
+from fastapi import FastAPI
 
-# Add project root to path so imports work
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+app = FastAPI()
 
-def handler(request, response):
-    init_db()
-    fetch_and_store_schemes()
-    fetch_daily_nav()
-    return response.json({"status": "daily update completed"})
+@app.get("/")
+def read_root():
+    return {"message": "Hello from FastAPI on Vercel!"}
