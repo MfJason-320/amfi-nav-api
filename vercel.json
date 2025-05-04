@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "api/update.py": {
-      "runtime": "python"
-    }
-  },
   "rewrites": [
     { "source": "/api/update", "destination": "/update" }
   ],
