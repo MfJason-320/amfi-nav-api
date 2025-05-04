@@ -1,8 +1,8 @@
 {
+  "rewrites": [
+    { "source": "/api/update", "destination": "/update" }
+  ],
   "crons": [
-    {
-      "path": "/api/update",
-      "schedule": "30 20 * * *"
-    }
+    { "path": "/update", "schedule": "30 20 * * *" }
   ]
 }
