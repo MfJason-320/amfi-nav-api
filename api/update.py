@@ -6,13 +6,9 @@ from app.nav_fetcher import fetch_and_store_schemes, fetch_daily_nav
 
 app = FastAPI()
 
-# Match both / and empty string
-@app.get("/", include_in_schema=False)
-@app.get("", include_in_schema=False)
+# Register exactly the empty path – this will map to /api/update on Vercel
+@app.get("")
 def update_data():
-    """
-    Triggers a full update: scheme list + today's NAV.
-    """
     try:
         init_db()
         fetch_and_store_schemes()
