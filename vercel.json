@@ -1,13 +1,15 @@
 {
-  "functions": {
-    "api/update.py": {
-      "runtime": "python3.9"
-    }
-  },
-  "crons": [
+  "version": 2,
+  "builds": [
     {
-      "path": "/api/update",
-      "schedule": "0 21 * * *"
+      "src": "api/update.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/update",
+      "dest": "api/update.py"
     }
   ]
 }
