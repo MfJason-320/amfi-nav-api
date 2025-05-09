@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "api/update.py": {
+      "runtime": "python3.9"
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/update",
+      "schedule": "0 21 * * *"
+    }
+  ]
+}
