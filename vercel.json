@@ -11,5 +11,11 @@
       "src": "/api/update",
       "dest": "api/update.py"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/update",
+      "schedule": "30 20 * * *"
+    }
   ]
 }
