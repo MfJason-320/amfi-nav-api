@@ -1,21 +1,13 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "api/update.py",
-      "use": "@vercel/python"
-    }
+    { "src": "api/*.js",      "use": "@vercel/node" },
+    { "src": "app/**/*.js",   "use": "@vercel/node" }
   ],
   "routes": [
-    {
-      "src": "/api/update",
-      "dest": "api/update.py"
-    }
+    { "src": "/api/(.*)", "dest": "/api/$1.js" }
   ],
   "crons": [
-    {
-      "path": "/api/update",
-      "schedule": "30 20 * * *"
-    }
+    { "path": "/api/update", "schedule": "30 20 * * *" }
   ]
 }
