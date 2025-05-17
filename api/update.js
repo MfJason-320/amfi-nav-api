@@ -1,10 +1,10 @@
 // api/update.js
-const axios = require("axios");
+import axios from "axios";
 
 const SCHEME_CSV_URL = "https://portal.amfiindia.com/DownloadSchemeData_Po.aspx?mf=0";
 const DAILY_NAV_URL  = "https://www.amfiindia.com/spages/NAVAll.txt";
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   try {
     // Fetch & parse scheme data
     const schemeText = (await axios.get(SCHEME_CSV_URL)).data;
@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
       };
     }).filter(Boolean);
 
-    return res.json({
+    res.status(200).json({
       status: "success",
       message: "NAV data fetched (not saved).",
       schemes_count: schemes.length,
@@ -38,6 +38,6 @@ module.exports = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
-};
+}
