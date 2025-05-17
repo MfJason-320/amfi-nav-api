@@ -1,60 +1,70 @@
-// api/update.js
-const sqlite3 = require("sqlite3").verbose();
-const axios   = require("axios");
+import sqlite3 from "sqlite3";
+import axios from "axios";
+import { promisify } from "util";
 
-const DB_PATH        = "/tmp/amfi.db";  // Persisted across invocations on Vercel
+const DB_PATH = "/tmp/amfi.db";  // This works on Vercel runtime
 const SCHEME_CSV_URL = "https://portal.amfiindia.com/DownloadSchemeData_Po.aspx?mf=0";
-const DAILY_NAV_URL  = "https://www.amfiindia.com/spages/NAVAll.txt";
+const DAILY_NAV_URL = "https://www.amfiindia.com/spages/NAVAll.txt";
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method Not Allowed" });
+  }
+
   try {
     const db = new sqlite3.Database(DB_PATH);
+    const dbExec = promisify(db.exec).bind(db);
+    const dbRun = promisify(db.run).bind(db);
+    const dbClose = promisify(db.close).bind(db);
 
-    // Initialize tables
-    await new Promise((r, e) =>
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS schemes (
-          scheme_code TEXT PRIMARY KEY,
-          scheme_name TEXT,
-          launch_date TEXT
-        );
-        CREATE TABLE IF NOT EXISTS navs (
-          scheme_code TEXT,
-          date TEXT,
-          nav REAL,
-          PRIMARY KEY (scheme_code, date)
-        );
-      `, err => err ? e(err) : r())
-    );
+    // Create tables
+    await dbExec(`
+      CREATE TABLE IF NOT EXISTS schemes (
+        scheme_code TEXT PRIMARY KEY,
+        scheme_name TEXT,
+        launch_date TEXT
+      );
+      CREATE TABLE IF NOT EXISTS navs (
+        scheme_code TEXT,
+        date TEXT,
+        nav REAL,
+        PRIMARY KEY (scheme_code, date)
+      );
+    `);
 
-    // Fetch & store schemes
+    // Fetch & insert scheme data
     const schemeText = (await axios.get(SCHEME_CSV_URL)).data;
-    schemeText.split("\n").slice(1).forEach(line => {
+    const schemeLines = schemeText.split("\n").slice(1);
+
+    for (const line of schemeLines) {
       const parts = line.split(";");
-      if (parts.length < 3) return;
+      if (parts.length < 3) continue;
       const [code, name, launch] = parts;
-      db.run(
+      await dbRun(
         "INSERT OR IGNORE INTO schemes VALUES (?, ?, ?)",
         [code.trim(), name.trim(), launch.trim()]
       );
-    });
+    }
 
-    // Fetch & store daily NAVs
+    // Fetch & insert NAV data
     const navText = (await axios.get(DAILY_NAV_URL)).data;
-    navText.split("\n").slice(1).forEach(line => {
+    const navLines = navText.split("\n").slice(1);
+
+    for (const line of navLines) {
       const parts = line.split(";");
-      if (parts.length < 8) return;
+      if (parts.length < 8) continue;
       const [code,,, navStr,,,, dateStr] = parts;
-      db.run(
+      await dbRun(
         "INSERT OR REPLACE INTO navs VALUES (?, ?, ?)",
         [code.trim(), dateStr.trim(), parseFloat(navStr)]
       );
-    });
+    }
 
-    db.close();
-    return res.json({ status: "success", message: "NAV data updated." });
+    await dbClose();
+    return res.status(200).json({ status: "success", message: "NAV data updated." });
+
   } catch (err) {
-    console.error(err);
+    console.error("Update error:", err);
     return res.status(500).json({ error: err.message });
   }
-};
+}
